@@ -26,30 +26,17 @@ export class Player {
   }
 
   applyMovement(targetVelocity: any, delta: number) {
-    console.log("Player.applyMovement - Target velocity:", targetVelocity.toArray());
-    console.log("Player.applyMovement - Current velocity:", this.velocity.toArray());
-    console.log("Player.applyMovement - Current moveVelocity:", this.moveVelocity.toArray());
-
     // Apply movement velocity (WASD input)
     this.moveVelocity.copy(targetVelocity);
 
     // Combine movement velocity with current velocity
     this.velocity.copy(this.moveVelocity);
-
-    console.log("Player.applyMovement - Updated velocity:", this.velocity.toArray());
-    console.log("Player.applyMovement - Updated moveVelocity:", this.moveVelocity.toArray());
   }
 
   update(delta: number) {
-    console.log("Player.update - Position before update:", this.mesh.position.toArray());
-    console.log("Player.update - Velocity:", this.velocity.toArray());
-    console.log("Player.update - Delta:", delta);
-
     // Update position based on velocity
     const velocityDelta = this.velocity.clone().multiplyScalar(delta);
     this.mesh.position.add(velocityDelta);
-
-    console.log("Player.update - Position after update:", this.mesh.position.toArray());
   }
 
   jump(gravityVector: any) {

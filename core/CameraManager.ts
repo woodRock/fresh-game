@@ -83,14 +83,6 @@ export class CameraManager {
     this.controls.target.copy(playerPos);
     this.controls.reset(); // Reset OrbitControls to clear previous rotation state
     this.controls.update();
-
-    // Debug logging
-    console.log(`Recentering camera for face: ${face}`);
-    console.log("Camera position:", this.camera.position.toArray());
-    console.log("Camera look-at:", playerPos.toArray());
-    console.log("Camera up:", this.camera.up.toArray());
-    console.log("World forward:", worldForward.toArray());
-    console.log("World up:", worldUp.toArray());
   }
 
   update(playerPosition: any) {
@@ -130,7 +122,6 @@ export class CameraManager {
     const cameraForward = new this.THREE.Vector3(0, 0, -1)
       .applyQuaternion(this.camera.quaternion)
       .normalize();
-    console.log("Camera forward:", cameraForward.toArray());
   }
 
   dispose() {

@@ -53,14 +53,22 @@ export class CollisionSystem {
         x = 0;
         z = 0;
     }
-
-    // Debug logging
-    console.log(`Checking collision on ${face} at local position:`, localPos.toArray());
-    console.log(`Mapped to maze cell: [${x}, ${z}]`);
-
+    
     // Clamp coordinates to maze bounds
     x = Math.max(0, Math.min(mazeSize - 1, x));
     z = Math.max(0, Math.min(mazeSize - 1, z));
+
+    // Check if the player is near an entry/exit point (edge of the face)
+    const isNearEdge =
+      x === 0 || x === mazeSize - 1 || z === 0 || z === mazeSize - 1;
+
+    // If near an edge, be more lenient with collision detection
+    if (isNearEdge) {
+      // Only check the player's center cell
+      if (maze[z][x] === 0) {
+        return false;
+      }
+    }
 
     // Check a small area around the player's position to account for radius
     const radiusInCells = Math.ceil(playerRadius / cellSize);
@@ -96,16 +104,11 @@ export class CollisionSystem {
         const distance = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
 
         if (distance <= playerRadius && maze[checkZ][checkX] === 1) {
-          console.log(`Collision detected with wall at cell [${checkX}, ${checkZ}]`);
           isCollision = true;
           break;
         }
       }
       if (isCollision) break;
-    }
-
-    if (!isCollision) {
-      console.log(`No collision at cell [${x}, ${z}] and surrounding area`);
     }
     return isCollision;
   }
@@ -114,25 +117,18 @@ export class CollisionSystem {
     const position = playerMesh.position.clone();
     const newPosition = position.clone().add(velocity);
 
-    // Perform a raycast between the current and new position to detect walls
     const direction = velocity.clone().normalize();
     const distance = velocity.length();
     const raycaster = new this.THREE.Raycaster(position, direction, 0, distance + GameConfig.playerRadius);
 
-    // Filter for walls using the isWall property
     const walls = cubeContainer.children.filter((child: any) => child.userData && child.userData.isWall === true);
-
-    console.log("Walls found for raycasting:", walls.length);
 
     const intersections = raycaster.intersectObjects(walls);
     if (intersections.length > 0 && intersections[0].distance <= distance + GameConfig.playerRadius) {
-      console.log(`Raycast collision detected at distance ${intersections[0].distance}, stopping movement`);
       return new this.THREE.Vector3(0, 0, 0);
     }
 
-    // Additional check at the new position
     if (this.checkMazeCollision(newPosition, face, cubeContainer)) {
-      console.log(`Collision detected at new position:`, newPosition.toArray());
       return new this.THREE.Vector3(0, 0, 0);
     }
 

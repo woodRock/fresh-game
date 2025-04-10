@@ -104,8 +104,6 @@ export class MazeGenerator {
       }
     });
 
-    console.log("Top maze data:", this.mazes.top);
-    console.log("Front maze data:", this.mazes.front);
   }
 
   private renderMazes() {
@@ -115,7 +113,6 @@ export class MazeGenerator {
     const halfSize = cubeSize / 2;
     const wallHeight = cellSize;
 
-    console.log("Rendering mazes...");
     for (const face in this.mazes) {
       const maze = this.mazes[face as FaceName];
       maze.forEach((row, y) => {
@@ -175,12 +172,10 @@ export class MazeGenerator {
             }
             wall.position.copy(position);
             this.cubeContainer.add(wall);
-            console.log(`Added wall at ${face}: ${position.x}, ${position.y}, ${position.z}`);
           }
         });
       });
     }
-    console.log("Cube container children:", this.cubeContainer.children.length);
   }
 
   getMazes(): Record<FaceName, number[][]> {

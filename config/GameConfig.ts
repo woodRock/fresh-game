@@ -1,6 +1,6 @@
 export const GameConfig = {
-  cubeSize: 30,
-  mazeSize: 10,
+  cubeSize: 50,
+  mazeSize: 25,
   playerRadius: 0.5,
   playerSpeed: 10.0,
   acceleration: 0.05,
