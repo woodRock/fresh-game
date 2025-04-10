@@ -53,7 +53,7 @@ export default function Game() {
 
           // Generate mazes
           const mazeGenerator = new MazeGenerator(THREE, sceneManager.cubeContainer);
-          const mazes = mazeGenerator.createConnectedMazes();
+          const mazes = mazeGenerator.getMazes();
 
           // Find a valid spawn point on the top face
           const topMaze = mazes.top;
