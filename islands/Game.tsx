@@ -1,4 +1,4 @@
-// islands/Game.tsx
+// islands/Game.tsx with simplified direction handling
 import { useEffect, useRef } from "preact/hooks";
 import { useSignal } from "@preact/signals";
 import { IS_BROWSER } from "$fresh/runtime.ts";
@@ -6,14 +6,26 @@ import { IS_BROWSER } from "$fresh/runtime.ts";
 // Import types
 import { FaceName } from "../utils/FaceUtils.ts";
 import { GameConfig } from "../config/GameConfig.ts";
+import Minimap from "../components/UI/Minimap.tsx";
 
 export default function Game() {
   // Game state signals
   const currentFace = useSignal<FaceName>("top");
   const visitCount = useSignal<number>(1);
-  const rotationEnabled = useSignal<boolean>(true);
+  const rotationEnabled = useSignal<boolean>(true); // Start with rotation enabled
   const status = useSignal<string>("Initializing...");
   const isGameOver = useSignal<boolean>(false);
+  const playerDirection = useSignal<string>("up"); // 'up', 'down', 'left', 'right'
+  
+  // Track visited faces
+  const visitedFaces = useSignal({
+    top: true,
+    bottom: false,
+    left: false,
+    right: false,
+    front: false,
+    back: false,
+  });
 
   // DOM reference for the Three.js canvas
   const mountRef = useRef<HTMLDivElement>(null);
@@ -50,6 +62,10 @@ export default function Game() {
 
           // Initialize scene manager first
           const sceneManager = new SceneManager(mountRef.current, THREE);
+          
+          // Set up initial camera position far from the cube
+          sceneManager.camera.position.set(0, 30, 30);
+          sceneManager.camera.lookAt(0, 0, 0);
 
           // Generate mazes
           const mazeGenerator = new MazeGenerator(THREE, sceneManager.cubeContainer);
@@ -87,8 +103,31 @@ export default function Game() {
           // Initialize collision system with mazes and THREE
           const collisionSystem = new CollisionSystem(mazes, THREE);
 
-          // Initialize input manager
+          // Initialize input manager with direction tracking
           const inputManager = new InputManager();
+          
+          // Add key handler to track player direction
+          const originalKeyDownHandler = inputManager.handleKeyDown.bind(inputManager);
+          inputManager.handleKeyDown = function(event: KeyboardEvent) {
+            // Call the original handler first
+            originalKeyDownHandler(event);
+            
+            // Update direction based on WASD keys
+            switch(event.key.toLowerCase()) {
+              case 'w':
+                playerDirection.value = 'up';
+                break;
+              case 's':
+                playerDirection.value = 'down';
+                break;
+              case 'a':
+                playerDirection.value = 'left';
+                break;
+              case 'd':
+                playerDirection.value = 'right';
+                break;
+            }
+          };
 
           // Initialize player with the spawn position
           const player = new Player(THREE, spawnPosition);
@@ -102,9 +141,6 @@ export default function Game() {
             THREE,
             OrbitControls
           );
-
-          // Debug: Verify THREE is defined before passing to GravitySystem
-          console.log("THREE object before GravitySystem:", THREE);
 
           // Initialize physics systems
           const gravitySystem = new GravitySystem(sceneManager.cubeContainer, THREE);
@@ -129,6 +165,12 @@ export default function Game() {
           // Set up callbacks
           engine.onFaceChange((face: FaceName) => {
             currentFace.value = face;
+            
+            // Update the visited faces state
+            visitedFaces.value = {
+              ...visitedFaces.value,
+              [face]: true
+            };
           });
 
           engine.onVisitCountChange((count: number) => {
@@ -165,6 +207,41 @@ export default function Game() {
       });
   }, []);
 
+  // Event listener for window resize to restart game
+  useEffect(() => {
+    const handleRestart = () => {
+      if (engineRef.current) {
+        engineRef.current.stop();
+        engineRef.current.dispose();
+        engineRef.current = null;
+      }
+      
+      isGameOver.value = false;
+      currentFace.value = "top";
+      visitCount.value = 1;
+      playerDirection.value = "up";
+      
+      // Reset visited faces
+      visitedFaces.value = {
+        top: true,
+        bottom: false,
+        left: false,
+        right: false,
+        front: false,
+        back: false,
+      };
+      
+      status.value = "Initializing...";
+      
+      // Re-run the effect to restart the game
+      const event = new Event("restart");
+      window.dispatchEvent(event);
+    };
+
+    window.addEventListener("restart", handleRestart);
+    return () => window.removeEventListener("restart", handleRestart);
+  }, []);
+
   // Handle rotation toggle from UI
   const toggleRotation = () => {
     rotationEnabled.value = !rotationEnabled.value;
@@ -175,16 +252,6 @@ export default function Game() {
 
   // Handle restart
   const restartGame = () => {
-    if (engineRef.current) {
-      engineRef.current.stop();
-      engineRef.current.dispose();
-      engineRef.current = null;
-    }
-    isGameOver.value = false;
-    currentFace.value = "top";
-    visitCount.value = 1;
-    status.value = "Initializing...";
-    // Re-run the effect to restart the game
     const event = new Event("restart");
     window.dispatchEvent(event);
   };
@@ -235,6 +302,13 @@ export default function Game() {
           {rotationEnabled.value ? "Disable" : "Enable"} Rotation
         </button>
       </div>
+
+      {/* Simplified Minimap UI */}
+      <Minimap 
+        currentFace={currentFace.value} 
+        visitedFaces={visitedFaces.value}
+        playerDirection={playerDirection.value}
+      />
 
       {/* Game Over Overlay */}
       {isGameOver.value && (
