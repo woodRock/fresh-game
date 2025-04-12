@@ -9,7 +9,7 @@ export class Engine {
   cameraManager: any;
   player: any;
   gravitySystem: any;
-  faceTransitionSystem: FaceTransitionSystem; // Properly typed
+  faceTransitionSystem: FaceTransitionSystem;
   collisionSystem: any;
   THREE: any;
   clock: any;
@@ -18,6 +18,7 @@ export class Engine {
   faceChangeCallback: (face: FaceName) => void;
   visitCountChangeCallback: (count: number) => void;
   justTransitioned: boolean;
+  customUpdateCallback: ((time: number) => void) | null;
 
   constructor({
     sceneManager,
@@ -28,15 +29,17 @@ export class Engine {
     faceTransitionSystem,
     collisionSystem,
     THREE,
+    customUpdateCallback,
   }: any) {
     this.sceneManager = sceneManager;
     this.inputManager = inputManager;
     this.cameraManager = cameraManager;
     this.player = player;
     this.gravitySystem = gravitySystem;
-    this.faceTransitionSystem = faceTransitionSystem; // Already instantiated
+    this.faceTransitionSystem = faceTransitionSystem;
     this.collisionSystem = collisionSystem;
     this.THREE = THREE;
+    this.customUpdateCallback = customUpdateCallback || null;
 
     this.clock = new THREE.Clock();
     this.isRunning = false;
@@ -65,7 +68,11 @@ export class Engine {
 
   setupInputHandlers() {
     this.inputManager.onJump(() => {
-      // this.player.jump(this.gravitySystem.getGravityVector());
+      if (this.player.isOnGround && !this.player.isJumping) {
+        // Assuming Player.ts has a jump method
+        // this.player.jump(this.gravitySystem.getGravityVector());
+        this.inputManager.jump = false;
+      }
     });
 
     this.inputManager.onToggleRotation(() => {
@@ -102,6 +109,15 @@ export class Engine {
     requestAnimationFrame(this.animate.bind(this));
 
     const delta = this.clock.getDelta();
+    const time = this.clock.getElapsedTime() * 1000;
+
+    if (this.customUpdateCallback) {
+      try {
+        this.customUpdateCallback(time);
+      } catch (error) {
+        console.error("Error in custom update callback:", error);
+      }
+    }
 
     const cameraForward = new this.THREE.Vector3(0, 0, -1)
       .applyQuaternion(this.cameraManager.camera.quaternion)
@@ -128,10 +144,21 @@ export class Engine {
 
     const targetVelocity = new this.THREE.Vector3(0, 0, 0);
 
+    // Keyboard inputs
     if (this.inputManager.keysPressed.w) targetVelocity.add(worldForward);
     if (this.inputManager.keysPressed.s) targetVelocity.sub(worldForward);
     if (this.inputManager.keysPressed.a) targetVelocity.sub(worldRight);
     if (this.inputManager.keysPressed.d) targetVelocity.add(worldRight);
+
+    // Touch inputs
+    if (this.inputManager.movement.x !== 0 || this.inputManager.movement.y !== 0) {
+      const moveX = this.inputManager.movement.x; // -1 to 1
+      const moveY = this.inputManager.movement.y; // -1 to 1
+      targetVelocity
+        .add(worldRight.clone().multiplyScalar(moveX))
+        .add(worldForward.clone().multiplyScalar(-moveY)); // Invert moveY
+      console.log("Touch input:", { moveX, moveY, targetVelocity: targetVelocity.toArray() });
+    }
 
     if (targetVelocity.length() > 0) {
       targetVelocity.normalize().multiplyScalar(GameConfig.playerSpeed);
@@ -150,6 +177,11 @@ export class Engine {
     );
 
     this.player.mesh.position.copy(previousPosition).add(adjustedVelocity);
+
+    if (this.inputManager.jump && this.player.isOnGround && !this.player.isJumping) {
+      // this.player.jump(this.gravitySystem.getGravityVector());
+      this.inputManager.jump = false;
+    }
 
     this.justTransitioned = false;
     this.checkFaceTransitions();
@@ -175,19 +207,15 @@ export class Engine {
       this.gameState.lastFace = this.gameState.currentFace;
       this.gameState.currentFace = transition.newFace;
 
-      // Use the new position from the transition system (already in world coordinates)
       this.player.mesh.position.copy(transition.newPosition);
 
-      // Update camera
       this.cameraManager.targetLookAt.copy(this.player.mesh.position);
       this.cameraManager.setCurrentFace(transition.newFace);
       this.cameraManager.recenterForFace(transition.newFace);
 
-      // Reset velocities
       this.player.velocity.set(0, 0, 0);
       this.player.moveVelocity.set(0, 0, 0);
 
-      // Update visit tracking
       if (!this.gameState.visitedFaces[transition.newFace]) {
         this.gameState.visitedFaces[transition.newFace] = true;
         this.gameState.faceVisitCount++;
